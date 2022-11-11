@@ -22,37 +22,40 @@ app.get('/', function(req, res) {
 });
 
 app.post('/api/shorturl', function(req, res) {
-  if (!req.body.url) return res.status(400).json({error:"Invalid URL"});
-  if (!/(http(s?)):\/\//i.test(req.body.url)) return res.status(400).json({error:"Invalid URL"});
+  try {
+      var url = new URL(req.body.url)
+      
+      return dns.lookup(url.hostname, (err) => {
+        if (err) {
+          return res.json({error:'invalid url'});
+        } else {
+          var short = Math.floor(Date.now() * 0.10);
+          
+          db.get(short.toString()).then(value => {
+            if (!value) return res.json({error:'invalid url'});
+            short = Math.floor(Date.now() * 0.25);
+          });
+          
+          db.set(short.toString(), req.body.url);
+          
+          return res.json({
+            original_url: req.body.url,
+            short_url: short,
+          });
+        }
+      })
+  } catch (error) {
+      return res.json({error:'invalid url'});
+  }
 
-  
-  return dns.lookup(req.body.url.replace(/(http(s?)):\/\//i, ''), (err) => {
-    if (err) {
-      return res.status(400).json({error:"Invalid URL"});
-    } else {
-      var short = Math.floor(Date.now() * 0.10);
-      
-      db.get(short.toString()).then(value => {
-        if (!value) return;
-        short = Math.floor(Date.now() * 0.25);
-      });
-      
-      db.set(short.toString(), req.body.url);
-      
-      return res.json({
-        original_url: req.body.url,
-        short_url: short,
-      });
-    }
-  })
 
 });
 
 app.get('/api/shorturl/:key', function(req, res) {
-  if (!req.params.key) return res.status(400).json({error:"Invalid URL"});
+  if (!req.params.key) return res.status(400).json({error:"invalid url"});
   
   return db.get(req.params.key.toString()).then(value => {
-    if (!value) return res.status(400).json({error:"Invalid URL"});
+    if (!value) return res.status(400).json({error:"invalid url"});
     
     console.log(`código ${req.params.key.toString()} acessado, redirecionando para ${value}`);
   
